@@ -61,6 +61,17 @@ create_vaccine = api.model( 'create_vaccine', {
     'TimeSeperation': fields.String(description='Time between the doses required.') 
 })
 
+# Setup the doctor endpoint
+
+doctor = api.namespace('doctor')
+
+create_doctor = api.model( 'create_doctor', {
+    'FirstName': fields.String(description='First Name of the doctor'),
+    'LastName': fields.String(description='Last Name of the doctor'),
+    'Address': fields.String(description='Address of the doctor'),
+    'Specialty': fields.String(description='Specialty of the doctor')
+})
+
 @company.route('')
 class Company(Resource):
 
@@ -100,6 +111,9 @@ class Company(Resource):
         db.commit()
 
         return "", 201
+
+
+
 
 @vaccine.route('')
 class Vaccine(Resource):
@@ -141,6 +155,49 @@ class Vaccine(Resource):
         db.commit()
 
         return "", 201
+
+@doctor.route('')
+class Doctor(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of doctor entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM doctor LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Doctor successfully added.')
+    @api.expect(create_doctor)
+    def post( self ):
+        """Create a new doctor
+        """
+
+        new_doctor = api.payload
+        print( new_doctor );
+        inputs = (new_doctor["FirstName"], new_doctor["LastName"], new_doctor["Address"], new_doctor["Specialty"])
+        sql = "INSERT INTO Doctor(FirstName, LastName, Address, Specialty) VALUES (%s, %s, %s, %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
+
+
+
 
 
 
