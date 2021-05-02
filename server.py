@@ -48,43 +48,6 @@ create_company = api.model( 'create_company', {
     'Location': fields.String(description='Location of the company (generally the country).')
 })
 
-# Setup the vaccine endpoint
-
-vaccine = api.namespace('vaccine')
-
-create_vaccine = api.model( 'create_vaccine', {
-    'Name': fields.String(description='Name of the vaccine.'),
-    'Description': fields.String(description='Details about the vaccine.'),
-    'StorageTemp': fields.String(description='Temperature to store the vaccine at.'),
-    'ShelfLife': fields.String(description='Shelf life of the vaccine.'),
-    'DosesRequired': fields.Integer(description='Number of doses needed for the vaccine.'),
-    'TimeSeperation': fields.String(description='Time between the doses required.') 
-})
-
-# Setup the doctor endpoint
-
-doctor = api.namespace('doctor')
-
-create_doctor = api.model( 'create_doctor', {
-    'FirstName': fields.String(description='First Name of the doctor'),
-    'LastName': fields.String(description='Last Name of the doctor'),
-    'Address': fields.String(description='Address of the doctor'),
-    'Specialty': fields.String(description='Specialty of the doctor')
-})
-
-# Setup the patient endpoint
-
-patient = api.namespace('patientt')
-
-create_patient = api.model( 'create_patient', {
-    'FirstName': fields.String(description='First Name of the patient'),
-    'LastName': fields.String(description='Last Name of the patient'),
-    'BirthDate': fields.Date(description='Birth date of the patient'),
-    'SS_Status': fields.String(description='Status of the patient'),
-    'Address': fields.String(description='Address of the patient'),
-    'PhoneNumner': fields.String(description='Phone number of the patient')
-})
-
 @company.route('')
 class Company(Resource):
 
@@ -126,7 +89,18 @@ class Company(Resource):
         return "", 201
 
 
+# Setup the vaccine endpoint
 
+vaccine = api.namespace('vaccine')
+
+create_vaccine = api.model( 'create_vaccine', {
+    'Name': fields.String(description='Name of the vaccine.'),
+    'Description': fields.String(description='Details about the vaccine.'),
+    'StorageTemp': fields.String(description='Temperature to store the vaccine at.'),
+    'ShelfLife': fields.String(description='Shelf life of the vaccine.'),
+    'DosesRequired': fields.Integer(description='Number of doses needed for the vaccine.'),
+    'TimeSeperation': fields.String(description='Time between the doses required.') 
+})
 
 @vaccine.route('')
 class Vaccine(Resource):
@@ -169,6 +143,18 @@ class Vaccine(Resource):
 
         return "", 201
 
+
+# Setup the doctor endpoint
+
+doctor = api.namespace('doctor')
+
+create_doctor = api.model( 'create_doctor', {
+    'FirstName': fields.String(description='First Name of the doctor'),
+    'LastName': fields.String(description='Last Name of the doctor'),
+    'Address': fields.String(description='Address of the doctor'),
+    'Specialty': fields.String(description='Specialty of the doctor')
+})
+
 @doctor.route('')
 class Doctor(Resource):
 
@@ -209,6 +195,19 @@ class Doctor(Resource):
 
         return "", 201
 
+
+# Setup the patient endpoint
+
+patient = api.namespace('patient')
+
+create_patient = api.model( 'create_patient', {
+    'FirstName': fields.String(description='First Name of the patient'),
+    'LastName': fields.String(description='Last Name of the patient'),
+    'BirthDate': fields.Date(description='Birth date of the patient'),
+    'SS_Status': fields.String(description='Status of the patient'),
+    'Address': fields.String(description='Address of the patient'),
+    'PhoneNumner': fields.String(description='Phone number of the patient')
+})
 
 @patient.route('')
 class Patient(Resource):
