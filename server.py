@@ -48,6 +48,19 @@ create_company = api.model( 'create_company', {
     'Location': fields.String(description='Location of the company (generally the country).')
 })
 
+# Setup the vaccine endpoint
+
+vaccine = api.namespace('vaccine')
+
+create_vaccine = api.model( 'create_vaccine', {
+    'Name': fields.String(description='Name of the vaccine.'),
+    'Description': fields.String(description='Details about the vaccine.'),
+    'StorageTemp': fields.String(description='Temperature to store the vaccine at.'),
+    'ShelfLife': fields.String(description='Shelf life of the vaccine.'),
+    'DosesRequired': fields.Integer(description='Number of doses needed for the vaccine.'),
+    'TimeSeperation': fields.String(description='Time between the doses required.') 
+})
+
 @company.route('')
 class Company(Resource):
 
@@ -81,6 +94,47 @@ class Company(Resource):
         print( new_company );
         inputs = (new_company["Name"], new_company["Location"])
         sql = "INSERT INTO Company(Name, Location) VALUES (%s, %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
+
+@vaccine.route('')
+class Vaccine(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of vaccine entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM vaccine LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Vaccine successfully added.')
+    @api.expect(create_vaccine)
+    def post( self ):
+        """Create a new vaccine
+        """
+
+        new_vaccine = api.payload
+        print( new_vaccine );
+        inputs = (new_vaccine["Name"], new_vaccine["Description"], new_vaccine["StorageTemp"],
+        new_vaccine["ShelfLife"],new_vaccine["DosesRequired"],new_vaccine["TimeSeperation"])
+        sql = "INSERT INTO Vaccine(Name, Description, StorageTemp, ShelfLife, DosesRequired, TimeSeperation) VALUES (%s, %s, %s, %s, %s, %s)"
 
         query.execute(sql, inputs)
 
