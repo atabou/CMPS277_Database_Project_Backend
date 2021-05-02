@@ -72,6 +72,19 @@ create_doctor = api.model( 'create_doctor', {
     'Specialty': fields.String(description='Specialty of the doctor')
 })
 
+# Setup the patient endpoint
+
+patient = api.namespace('patientt')
+
+create_patient = api.model( 'create_patient', {
+    'FirstName': fields.String(description='First Name of the patient'),
+    'LastName': fields.String(description='Last Name of the patient'),
+    'BirthDate': fields.Date(description='Birth date of the patient'),
+    'SS_Status': fields.String(description='Status of the patient'),
+    'Address': fields.String(description='Address of the patient'),
+    'PhoneNumner': fields.String(description='Phone number of the patient')
+})
+
 @company.route('')
 class Company(Resource):
 
@@ -195,6 +208,48 @@ class Doctor(Resource):
         db.commit()
 
         return "", 201
+
+
+@patient.route('')
+class Patient(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of patient entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM patient LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Patient successfully created.')
+    @api.expect(create_patient)
+    def post( self ):
+        """Create a new patient
+        """
+
+        new_patient = api.payload
+        print( new_patient );
+        inputs = (new_patient["FirstName"], new_patient["LastName"], new_patient["BirthDate"], new_patient["SS_Status"], new_patient["Address"], new_patient["PhoneNumber"])
+        sql = "INSERT INTO Patient(Firstname, LastName, BirthDate, SS_Status, Address, PhoneNumber) VALUES (%s, %s, %s, %s, %s, %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
+
 
 
 
