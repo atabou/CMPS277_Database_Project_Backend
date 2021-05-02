@@ -1,24 +1,15 @@
 
-from flask import Flask, Blueprint, jsonify
-from flask_restplus import Resource, Api
+from flask import Flask, Blueprint, jsonify, request
+from flask_restplus import Resource, Api, reqparse, fields
+from flask_cors import CORS
 
 import mysql.connector
+
 
 from dotenv import load_dotenv
 load_dotenv(".env")
 
 import os
-
-# Start the server
-app = Flask(__name__)
-
-# Define the api documentation
-blueprint = Blueprint('api', __name__, url_prefix='/api')
-api = Api(blueprint, doc='/documentation', title="CMPS 277 Project API", description="The api documentation for the CMPS 277 Project")
-
-# Register the api blue print
-app.register_blueprint(blueprint)
-
 
 # Setup DB connection
 db = mysql.connector.connect(
@@ -28,39 +19,75 @@ db = mysql.connector.connect(
     database=os.environ["MYSQL_DATABASE"]
 )
 
-query = db.cursor()
+query = db.cursor(dictionary=True)
 
-@api.route('/company')
-class Home(Resource):
+# Start the server
+app = Flask(__name__)
 
+# Setup cors to be allowed from all endpoints
+CORS(app)
+
+# Define the api documentation
+blueprint = Blueprint('api', __name__, url_prefix='/api')
+api = Api(blueprint, doc='/documentation', title="CMPS 277 Project API", description="The api documentation for the CMPS 277 Project")
+
+# Register the api blue print
+app.register_blueprint(blueprint)
+
+# Setup pagination
+pagination = reqparse.RequestParser()
+pagination.add_argument('page', type=int, required=False, default=0, help='Page number')
+pagination.add_argument('per_page', type=int, required=False, default=10, choices=[10, 20, 30, 40, 50])
+
+# Setup the company endpoint
+
+company = api.namespace('company')
+
+create_company = api.model( 'create_company', {
+    'Name': fields.String(description='Name of the company.'),
+    'Location': fields.String(description='Location of the company (generally the country).')
+})
+
+@company.route('')
+class Company(Resource):
+
+    @api.expect(pagination)
     def get( self ):
+        """Get method to get a specified amount of company entries.
         """
-        This the get method of /home
-        """
+        args = pagination.parse_args( request )
 
-        sql = "SELECT * FROM company"
-        query.execute(sql)
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM company LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
 
         data = query.fetchall()
 
+        print(data)
+
         return jsonify(data)
 
+    @api.response(201, 'Company successfully created.')
+    @api.expect(create_company)
     def post( self ):
-        """The post method for /
-
-        Post method
+        """Create a new company
         """
-        return 200
+
+        new_company = api.payload
+        inputs = (new_company["Name"], new_company["Location"])
+        sql = "INSERT INTO Company(Name, Location) VALUES (%s, %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return 201
 
 
-@api.route('/hello')
-class Other(Resource):
-
-    def get( self ):
-        """
-        This the get method of /hello
-        """
-        return 200
 
 if  __name__ == "__main__":
 
