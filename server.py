@@ -78,6 +78,7 @@ class Company(Resource):
         """
 
         new_company = api.payload
+        print( new_company );
         inputs = (new_company["Name"], new_company["Location"])
         sql = "INSERT INTO Company(Name, Location) VALUES (%s, %s)"
 
@@ -85,7 +86,7 @@ class Company(Resource):
 
         db.commit()
 
-        return 201
+        return "", 201
 
 
 
