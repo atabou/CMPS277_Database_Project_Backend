@@ -26,7 +26,8 @@ MYSQL_DATABASE=<Database_Name> (Replace)
 
 ## Run
 
-`python server.py`
+1. Start MAMP or WAMP
+2. Run `python server.py`
 
 ## Documentation
 
