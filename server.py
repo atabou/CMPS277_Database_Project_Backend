@@ -4,12 +4,13 @@ from flask_restplus import Resource, Api, reqparse, fields
 from flask_cors import CORS
 
 import mysql.connector
+import os
 
 
 from dotenv import load_dotenv
 load_dotenv(".env")
 
-import os
+
 
 # Setup DB connection
 db = mysql.connector.connect(
@@ -250,10 +251,164 @@ class Patient(Resource):
         return "", 201
 
 
+#Trial code
+
+# Setup the Storage Provider endpoint
+
+storageProvider = api.namespace('storageProvider')
+
+create_storageProvider = api.model( 'create_storageProvider', {
+    'Storage_Provider_ID': fields.String(description='Storage Provider ID')
+})
+
+@storageProvider.route('')
+class StorageProvider(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of Storage providers entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM storageProvider LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Storage Provider successfully created.')
+    @api.expect(create_storageProvider)
+    def post( self ):
+        """Create a new storage provider
+        """
+
+        new_storageProvider = api.payload
+        print( new_storageProvider );
+        inputs = (new_storageProvider["Storage_Provider_ID"])
+        sql = "INSERT INTO StorageProvider(Storage_Provider_ID) VALUES (%s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
 
 
+# Setup the Hospital endpoint
+
+hospital = api.namespace('hospital')
+
+create_hospital = api.model( 'create_hospital', {
+    'H_Registration': fields.String(description='the registration number of the hospital'),
+    'Name': fields.String(description='the name of the hospital'),
+    'Address': fields.String(description='the address of the hospital'),
+    'isPublic': fields.String(description='specifies wether or not the hospital is public'),
+    'offersVaccination': fields.String(description='specifies wether or not the hospital offers vaccination'),
+    'Storage_Provider_ID': fields.String(description='a foreign key referencing the ID of the storage provider of the hospital')
+})
+
+@hospital.route('')
+class Hospital(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of hospital entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM hospital LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Hospital successfully created.')
+    @api.expect(create_hospital)
+    def post( self ):
+        """Create a new hospital
+        """
+
+        new_hospital = api.payload
+        print( new_hospital );
+        inputs = (new_hospital["H_Registration"], new_hospital["name"], new_hospital["address"], new_hospital["isPublic"], new_hospital["offersVaccination"], new_hospital["Storage_Provider_ID"])
+        sql = "INSERT INTO Hospital(H_Registration, name, address, isPublic, offersVaccination, Storage_Provider_ID) VALUES (%s, %s, %s, %s, %s. %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
 
 
+# Setup the Orders endpoint
+
+orders = api.namespace('orders')
+
+create_orders = api.model( 'create_orders', {
+    'OrderID': fields.String(description='the ID number of the order'),
+    'C_Registration': fields.String(description='a foreign key referencing the registration number of the company'),
+    'GOV_ID': fields.String(description='a foreign key referencing the ID number of the government'),
+    'OrderDate': fields.String(description='the date of placing the order'),
+    'ETA': fields.String(description='the estimated time of arrival of the order'),
+    'DateReceived': fields.String(description='the date of receiving the order'),
+    'Status': fields.String(description='the status of the order')
+})
+
+@orders.route('')
+class Orders(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of orders' entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM orders LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Order successfully created.')
+    @api.expect(create_orders)
+    def post( self ):
+        """Create a new Order
+        """
+
+        new_orders = api.payload
+        print( new_hospital );
+        inputs = (new_orders["OrderID"], new_orders["C_Registration"], new_orders["GOV_ID"], new_orders["OrderDate"], new_orders["ETA"], new_orders["DateReceived"], new_orders["Status"])
+        sql = "INSERT INTO Hospital(OrderID, C_Registration, GOV_ID, OrderDate, ETA, DateReceived, Status) VALUES (%s, %s, %s, %s, %s. %s, %s)"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
 
 if  __name__ == "__main__":
 
