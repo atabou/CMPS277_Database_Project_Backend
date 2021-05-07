@@ -4,12 +4,13 @@ from flask_restplus import Resource, Api, reqparse, fields
 from flask_cors import CORS
 
 import mysql.connector
+import os
 
 
 from dotenv import load_dotenv
 load_dotenv(".env")
 
-import os
+
 
 # Setup DB connection
 db = mysql.connector.connect(
@@ -250,9 +251,162 @@ class Patient(Resource):
         return "", 201
 
 
+# Setup the Hospital endpoint
+
+hospital = api.namespace('hospital')
+
+create_hospital = api.model( 'create_hospital', {
+    'Name': fields.String(description='the name of the hospital'),
+    'Address': fields.String(description='the address of the hospital'),
+    'Type': fields.String(description='specifies wether or not the hospital is public'),
+    'OffersVaccination': fields.String(description='specifies wether or not the hospital offers vaccination'),
+})
+
+@hospital.route('')
+class Hospital(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of hospital entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT H_Registration, Name, Address, Type, OffersVaccination FROM hospital LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Hospital successfully created.')
+    @api.expect(create_hospital)
+    def post( self ):
+        """Create a new hospital
+        """
+
+        new_hospital = api.payload
+        print( new_hospital );
+        inputs = (new_hospital["Name"], new_hospital["Address"], new_hospital["Type"], new_hospital["OffersVaccination"])
+        query.callproc("createHospital", inputs)
+        db.commit()
+
+        return "", 201
 
 
+# Setup the Orders endpoint
 
+orders = api.namespace('orders')
+
+create_orders = api.model( 'create_orders', {
+    'C_Registration': fields.Integer(description='a foreign key referencing the registration number of the company'),
+    'OrderDate': fields.Date(description='the date of placing the order'),
+    'ETA': fields.Date(description='the estimated time of arrival of the order')
+})
+
+@orders.route('')
+class Orders(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of orders' entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = "SELECT * FROM orders_v LIMIT %s OFFSET %s"
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.response(201, 'Order successfully created.')
+    @api.expect(create_orders)
+    def post( self ):
+        """Create a new Order
+        """
+
+        new_orders = api.payload
+        inputs = (new_orders["C_Registration"], new_orders["OrderDate"], new_orders["ETA"])
+        print(inputs)
+        sql = "INSERT INTO Orders(C_Registration, GOV_ID, OrderDate, ETA, Status) VALUES (%s, 1, %s, %s, 'Ordered')"
+
+        query.execute(sql, inputs)
+
+        db.commit()
+
+        return "", 201
+
+    @api.response(204, 'Order Succesfully Modified')
+    def put( self ):
+
+        update = api.payload
+
+        OrderID = update["OrderID"]
+        Boxes = update["Boxes"]
+        DateReceived = update["DateReceived"]
+
+        sqlBoxes = "INSERT INTO box (B_Barcode, OrderID, V_Registration) VALUES "
+        sqlVacc = "INSERT INTO vaccine_item (B_Barcode, Status, V_Barcode) VALUES "
+        for i in range(len(Boxes)):
+
+            sqlBoxes += "({},{},{})".format(Boxes[i]["B_Barcode"], OrderID, Boxes[i]["V_Registration"])
+
+            if i < len(Boxes) - 1:
+                sqlBoxes += ","
+
+            if i > 0 and len(Boxes[i]["V_Barcodes"]):
+                sqlVacc += ","
+
+            for j in range( len(Boxes[i]["V_Barcodes"]) ):
+                sqlVacc += "({},'Available',{})".format( Boxes[i]["B_Barcode"], Boxes[i]["V_Barcodes"][j] )
+                if j < len(Boxes[i]["V_Barcodes"]) - 1:
+                    sqlVacc += ","
+
+        query.execute(sqlBoxes)
+        db.commit() 
+
+        query.execute(sqlVacc)
+        db.commit()
+
+        sql = "UPDATE orders SET DateReceived='{}', Status='Received', ETA='{}' WHERE OrderID={}".format(DateReceived, DateReceived, OrderID)
+        query.execute(sql)
+        db.commit()
+
+        return "", 204
+
+get_list_of_companies = api.model( 'get_list_of_companies', {
+    'text': fields.String(description='beginning of text to search for in company')
+})
+
+@orders.route('/company')
+class OrdersGetListOfCompanies(Resource):
+
+    @api.expect(get_list_of_companies)
+    def post( self ):
+        """Return a list of companies for the order dropdown.
+        """
+
+        data = api.payload
+        sql = "SELECT C_Registration, Name from Company WHERE Name LIKE '{}%' LIMIT 4 OFFSET 0".format(data["text"])
+        query.execute(sql)
+        companies = query.fetchall()
+
+
+        return jsonify(companies)
 
 
 if  __name__ == "__main__":
