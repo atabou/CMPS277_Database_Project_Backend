@@ -75,7 +75,6 @@ CREATE TABLE `government` (
   `Gov_ID` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `Storage_Provider_ID` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
 -- --------------------------------------------------------
 
 --
@@ -86,8 +85,8 @@ CREATE TABLE `hospital` (
   `H_Registration` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `Name` varchar(30) NOT NULL,
   `Address` varchar(40) NOT NULL,
-  `isPublic` tinyint(1) NOT NULL,
-  `OffersVaccination` tinyint(1) NOT NULL,
+  `Type` varchar(20) NOT NULL,
+  `OffersVaccination` varchar(20) NOT NULL,
   `Storage_Provider_ID` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -115,8 +114,8 @@ CREATE TABLE `orders` (
   `C_Registration` int(11) NOT NULL,
   `GOV_ID` int(11) NOT NULL,
   `OrderDate` date NOT NULL,
-  `ETA` int(11) NOT NULL,
-  `DateReceived` date NOT NULL,
+  `ETA` date NOT NULL,
+  `DateReceived` date,
   `Status` varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
@@ -440,3 +439,50 @@ ALTER TABLE `vaccine_manufacturer`
 ALTER TABLE `worksat`
   ADD CONSTRAINT `worksat_ibfk_1` FOREIGN KEY (`D_Registration`) REFERENCES `doctor` (`D_Registration`),
   ADD CONSTRAINT `worksat_ibfk_2` FOREIGN KEY (`H_Registration`) REFERENCES `hospital` (`H_Registration`);
+
+
+-- --------------------------------------------------------
+
+--
+-- Default Values
+--
+
+INSERT INTO storage_provider () VALUES ();
+INSERT INTO government (Storage_Provider_ID) VALUES (1);
+
+-- --------------------------------------------------------
+
+--
+-- View for orders
+--
+
+CREATE VIEW Orders_V AS
+  SELECT t1.OrderID, t2.Name as Company, t1.OrderDate as OrderDate, t1.ETA, t1.DateReceived as Received, t1.Status
+  FROM Orders as t1 INNER JOIN Company as t2 ON t1.C_Registration = t2.C_Registration;
+
+-- --------------------------------------------------------
+
+--
+-- Stored Procedure for creating a new hospital
+--
+
+DROP PROCEDURE IF EXISTS createHospital;
+DELIMITER $$
+CREATE PROCEDURE createHospital(
+    IN Name varchar(30),
+    IN Address varchar(40),
+  	IN Type varchar(20),
+  	IN OffersVaccination varchar(20)
+)
+BEGIN
+
+	DECLARE storage_prov_id INT;
+
+	INSERT INTO storage_provider() VALUES ();
+    
+    SET storage_prov_id = (SELECT MAX(Storage_Provider_ID) FROM storage_provider);
+
+	INSERT INTO hospital ( Name, Address, Type, OffersVaccination, Storage_Provider_ID ) VALUES (Name, Address, Type, OffersVaccination, storage_prov_id);
+
+END $$
+DELIMITER ;
