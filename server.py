@@ -251,68 +251,15 @@ class Patient(Resource):
         return "", 201
 
 
-#Trial code
-
-# Setup the Storage Provider endpoint
-
-storageProvider = api.namespace('storageProvider')
-
-create_storageProvider = api.model( 'create_storageProvider', {
-    'Storage_Provider_ID': fields.String(description='Storage Provider ID')
-})
-
-@storageProvider.route('')
-class StorageProvider(Resource):
-
-    @api.expect(pagination)
-    def get( self ):
-        """Get method to get a specified amount of Storage providers entries.
-        """
-        args = pagination.parse_args( request )
-
-        page = args.get('page', 1)
-        per_page = args.get('per_page', 10)
-
-        inputs = (per_page, page*per_page)
-        sql = "SELECT * FROM storageProvider LIMIT %s OFFSET %s"
-
-        query.execute(sql, inputs)
-
-        data = query.fetchall()
-
-        print(data)
-
-        return jsonify(data)
-
-    @api.response(201, 'Storage Provider successfully created.')
-    @api.expect(create_storageProvider)
-    def post( self ):
-        """Create a new storage provider
-        """
-
-        new_storageProvider = api.payload
-        print( new_storageProvider );
-        inputs = (new_storageProvider["Storage_Provider_ID"])
-        sql = "INSERT INTO StorageProvider(Storage_Provider_ID) VALUES (%s)"
-
-        query.execute(sql, inputs)
-
-        db.commit()
-
-        return "", 201
-
-
 # Setup the Hospital endpoint
 
 hospital = api.namespace('hospital')
 
 create_hospital = api.model( 'create_hospital', {
-    'H_Registration': fields.String(description='the registration number of the hospital'),
     'Name': fields.String(description='the name of the hospital'),
     'Address': fields.String(description='the address of the hospital'),
-    'isPublic': fields.String(description='specifies wether or not the hospital is public'),
-    'offersVaccination': fields.String(description='specifies wether or not the hospital offers vaccination'),
-    'Storage_Provider_ID': fields.String(description='a foreign key referencing the ID of the storage provider of the hospital')
+    'Type': fields.String(description='specifies wether or not the hospital is public'),
+    'OffersVaccination': fields.String(description='specifies wether or not the hospital offers vaccination'),
 })
 
 @hospital.route('')
@@ -328,7 +275,7 @@ class Hospital(Resource):
         per_page = args.get('per_page', 10)
 
         inputs = (per_page, page*per_page)
-        sql = "SELECT * FROM hospital LIMIT %s OFFSET %s"
+        sql = "SELECT H_Registration, Name, Address, Type, OffersVaccination FROM hospital LIMIT %s OFFSET %s"
 
         query.execute(sql, inputs)
 
@@ -346,11 +293,8 @@ class Hospital(Resource):
 
         new_hospital = api.payload
         print( new_hospital );
-        inputs = (new_hospital["H_Registration"], new_hospital["name"], new_hospital["address"], new_hospital["isPublic"], new_hospital["offersVaccination"], new_hospital["Storage_Provider_ID"])
-        sql = "INSERT INTO Hospital(H_Registration, name, address, isPublic, offersVaccination, Storage_Provider_ID) VALUES (%s, %s, %s, %s, %s. %s)"
-
-        query.execute(sql, inputs)
-
+        inputs = (new_hospital["Name"], new_hospital["Address"], new_hospital["Type"], new_hospital["OffersVaccination"])
+        query.callproc("createHospital", inputs)
         db.commit()
 
         return "", 201
@@ -361,13 +305,9 @@ class Hospital(Resource):
 orders = api.namespace('orders')
 
 create_orders = api.model( 'create_orders', {
-    'OrderID': fields.String(description='the ID number of the order'),
-    'C_Registration': fields.String(description='a foreign key referencing the registration number of the company'),
-    'GOV_ID': fields.String(description='a foreign key referencing the ID number of the government'),
-    'OrderDate': fields.String(description='the date of placing the order'),
-    'ETA': fields.String(description='the estimated time of arrival of the order'),
-    'DateReceived': fields.String(description='the date of receiving the order'),
-    'Status': fields.String(description='the status of the order')
+    'C_Registration': fields.Integer(description='a foreign key referencing the registration number of the company'),
+    'OrderDate': fields.Date(description='the date of placing the order'),
+    'ETA': fields.Date(description='the estimated time of arrival of the order')
 })
 
 @orders.route('')
@@ -383,7 +323,7 @@ class Orders(Resource):
         per_page = args.get('per_page', 10)
 
         inputs = (per_page, page*per_page)
-        sql = "SELECT * FROM orders LIMIT %s OFFSET %s"
+        sql = "SELECT * FROM orders_v LIMIT %s OFFSET %s"
 
         query.execute(sql, inputs)
 
@@ -400,15 +340,74 @@ class Orders(Resource):
         """
 
         new_orders = api.payload
-        print( new_hospital );
-        inputs = (new_orders["OrderID"], new_orders["C_Registration"], new_orders["GOV_ID"], new_orders["OrderDate"], new_orders["ETA"], new_orders["DateReceived"], new_orders["Status"])
-        sql = "INSERT INTO Hospital(OrderID, C_Registration, GOV_ID, OrderDate, ETA, DateReceived, Status) VALUES (%s, %s, %s, %s, %s. %s, %s)"
+        inputs = (new_orders["C_Registration"], new_orders["OrderDate"], new_orders["ETA"])
+        print(inputs)
+        sql = "INSERT INTO Orders(C_Registration, GOV_ID, OrderDate, ETA, Status) VALUES (%s, 1, %s, %s, 'Ordered')"
 
         query.execute(sql, inputs)
 
         db.commit()
 
         return "", 201
+
+    @api.response(204, 'Order Succesfully Modified')
+    def put( self ):
+
+        update = api.payload
+
+        OrderID = update["OrderID"]
+        Boxes = update["Boxes"]
+        DateReceived = update["DateReceived"]
+
+        sqlBoxes = "INSERT INTO box (B_Barcode, OrderID, V_Registration) VALUES "
+        sqlVacc = "INSERT INTO vaccine_item (B_Barcode, Status, V_Barcode) VALUES "
+        for i in range(len(Boxes)):
+
+            sqlBoxes += "({},{},{})".format(Boxes[i]["B_Barcode"], OrderID, Boxes[i]["V_Registration"])
+
+            if i < len(Boxes) - 1:
+                sqlBoxes += ","
+
+            if i > 0 and len(Boxes[i]["V_Barcodes"]):
+                sqlVacc += ","
+
+            for j in range( len(Boxes[i]["V_Barcodes"]) ):
+                sqlVacc += "({},'Available',{})".format( Boxes[i]["B_Barcode"], Boxes[i]["V_Barcodes"][j] )
+                if j < len(Boxes[i]["V_Barcodes"]) - 1:
+                    sqlVacc += ","
+
+        query.execute(sqlBoxes)
+        db.commit() 
+
+        query.execute(sqlVacc)
+        db.commit()
+
+        sql = "UPDATE orders SET DateReceived='{}', Status='Received', ETA='{}' WHERE OrderID={}".format(DateReceived, DateReceived, OrderID)
+        query.execute(sql)
+        db.commit()
+
+        return "", 204
+
+get_list_of_companies = api.model( 'get_list_of_companies', {
+    'text': fields.String(description='beginning of text to search for in company')
+})
+
+@orders.route('/company')
+class OrdersGetListOfCompanies(Resource):
+
+    @api.expect(get_list_of_companies)
+    def post( self ):
+        """Return a list of companies for the order dropdown.
+        """
+
+        data = api.payload
+        sql = "SELECT C_Registration, Name from Company WHERE Name LIKE '{}%' LIMIT 4 OFFSET 0".format(data["text"])
+        query.execute(sql)
+        companies = query.fetchall()
+
+
+        return jsonify(companies)
+
 
 if  __name__ == "__main__":
 
