@@ -408,6 +408,236 @@ class OrdersGetListOfCompanies(Resource):
 
         return jsonify(companies)
 
+# Setup the Orders endpoint
+
+box = api.namespace('box')
+
+new_transfer = api.model( 'new_transfer', {
+    'F_Barcode': fields.Integer(),
+    'B_Barcode': fields.Integer(),
+    'Date_Transfered': fields.Date(),
+    'Date_Arrived': fields.Date()
+})
+
+
+@box.route('')
+class Box(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+        """Get method to get a specified amount of orders' entries.
+        """
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT t1.B_Barcode, t2.Name as VaccineName, t2.StorageTemp as StorageTemperature, t2.ShelfLife, t3.DateReceived, t4.Name as CompanyName, t5.Date_Transferred as DateTransfered, t7.Location, t9.Name as HospitalName FROM box as t1 
+            INNER JOIN Vaccine as t2 on t1.V_Registration = t2.V_Registration
+            INNER JOIN Orders as t3 on t1.OrderID = t3.OrderID
+            INNER JOIN Company as t4 on t3.C_Registration = t4.C_Registration
+            LEFT OUTER JOIN (
+                SELECT * FROM Transfer WHERE Transfer_ID in ( SELECT d1.Transfer_ID FROM (SELECT B_Barcode, MAX(Transfer_ID) as Transfer_ID FROM Transfer GROUP BY B_Barcode) as d1 )
+            ) as t5 on t5.B_Barcode = t1.B_Barcode
+            LEFT OUTER JOIN Fridge as t6 on t6.F_Barcode = t5.F_Barcode
+            LEFT OUTER JOIN Storage as t7 on t7.Storage_ID = t6.Storage_ID
+            LEFT OUTER JOIN storage_provider as t8 on t7.Storage_Provider_ID = t8.Storage_Provider_ID
+            LEFT OUTER JOIN hospital as t9 on t8.Storage_Provider_ID = t9.Storage_Provider_ID
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(new_transfer)
+    def post(self):
+        """ Put Method to change the location of a box
+        """
+
+        transfer = api.payload
+
+        inputs = (transfer["B_Barcode"], transfer["F_Barcode"], transfer["Date_Transfered"], transfer["Date_Arrived"])
+        sql = "INSERT INTO Transfer(B_Barcode, F_Barcode, Date_Transferred, Date_Arrived) VALUES (%s, %s, %s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        return "", 204
+
+
+get_list_of_fridges = api.model( 'get_list_of_fridges', {
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@box.route('/fridge')
+class BoxFridge(Resource):
+
+    @api.expect(get_list_of_fridges)
+    def post(self):
+        """ Get the barcodes of the fridges
+        """
+
+        fridges = api.payload
+
+        print(fridges)
+
+        sql = "SELECT F_Barcode FROM Fridge WHERE F_Barcode LIKE '{}%' LIMIT 4 OFFSET 0".format(fridges["text"])
+        query.execute(sql)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+
+# Setup the Orders endpoint
+
+storage = api.namespace('storage')
+
+storage_data = api.model( 'storage_data', {
+    'Location': fields.String(),
+    'Storage_Provider_ID': fields.Integer(),
+})
+
+@storage.route('')
+class Storage(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT t1.Location, t2.Name FROM Storage as t1 LEFT OUTER JOIN Hospital as t2 on t1.Storage_Provider_ID = t2.Storage_Provider_ID
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(storage_data)
+    def post(self):
+
+        storage = api.payload
+
+        inputs = (storage["Location"], storage["Storage_Provider_ID"])
+        sql = "INSERT INTO Storage(Location, Storage_Provider_ID) VALUES (%s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        return "", 204
+
+
+get_list_of_fridges = api.model( 'get_list_of_fridges', {
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@storage.route('/hospitals')
+class BoxFridge(Resource):
+
+    @api.expect(get_list_of_fridges)
+    def post(self):
+        """ Get the barcodes of the fridges
+        """
+
+        fridges = api.payload
+
+        print(fridges)
+
+        sql = "SELECT Storage_Provider_ID, Name FROM Hospital WHERE Name LIKE '{}%' LIMIT 4 OFFSET 0".format(fridges["text"])
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
+
+# Setup the Orders endpoint
+
+fridge = api.namespace('fridge')
+
+fridge_data = api.model( 'fridge_data', {
+    'OperatingTemperature': fields.Integer(),
+    'Capacity': fields.Integer(),
+    'Storage_ID': fields.Integer()
+})
+
+@fridge.route('')
+class Storage(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT t1.F_Barcode, t1.Capacity, t1.OperatingTemp, t2.Location, t3.Name as HospitalName  FROM Fridge as t1 INNER JOIN Storage as t2 on t1.Storage_ID = t2.Storage_ID LEFT OUTER JOIN Hospital as t3 on t2.Storage_Provider_ID = t3.Storage_Provider_ID
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(fridge_data)
+    def post(self):
+
+        fridge = api.payload
+
+        inputs = (fridge["OperatingTemperature"], fridge["Storage_ID"], fridge["Capacity"])
+        sql = "INSERT INTO Fridge(OperatingTemp, Storage_ID, Capacity) VALUES (%s, %s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        return "", 204
+
+
+get_list_of_fridges = api.model( 'get_list_of_fridges', {
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@fridge.route('/storage')
+class BoxFridge(Resource):
+
+    @api.expect(get_list_of_fridges)
+    def post(self):
+        """ Get the barcodes of the fridges
+        """
+
+        fridges = api.payload
+
+        print(fridges)
+
+        sql = "SELECT Location, Storage_ID FROM Storage WHERE Location LIKE '{}%' LIMIT 4 OFFSET 0".format(fridges["text"])
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
 
 if  __name__ == "__main__":
 

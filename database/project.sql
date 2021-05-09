@@ -190,7 +190,7 @@ CREATE TABLE `storage_provider` (
 --
 
 CREATE TABLE `transfer` (
-  `Tranfer_ID` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `Transfer_ID` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `B_barcode` int(11) NOT NULL,
   `F_barcode` int(11) NOT NULL,
   `Date_Transferred` date NOT NULL,
