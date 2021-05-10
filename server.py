@@ -40,6 +40,52 @@ pagination = reqparse.RequestParser()
 pagination.add_argument('page', type=int, required=False, default=0, help='Page number')
 pagination.add_argument('per_page', type=int, required=False, default=10, choices=[10, 20, 30, 40, 50])
 
+
+# Setup the dashboard endpoint
+
+dashboard = api.namespace('dashboard')
+
+@dashboard.route('')
+class Company(Resource):
+
+    def get( self ):
+        """Get method to get a specified amount of company entries.
+        """
+
+        data = []
+
+        sql = """
+        SELECT t1.Date, (SELECT COUNT(t2.Date) FROM inoculation as t2 WHERE t1.Date >= t2.Date) as Total FROM inoculation as t1 order by t1.Date
+        """
+        query.execute(sql)
+
+        data.append(query.fetchall())
+
+        sql = """
+            SELECT 
+            t1.Date, 
+            (
+                SELECT COUNT(t2.Date) FROM (
+                    SELECT MAX(d2.date) as Date, d2.SSN FROM (
+                        SELECT Date, SSN, COUNT(SSN) as ssn_count FROM inoculation group by SSN, DATE HAVING ssn_count > 1
+                    ) as d2 
+                    GROUP BY d2.SSN 
+                ) as t2
+                WHERE t1.Date >= t2.Date
+            ) as Total
+            FROM (
+                SELECT MAX(d1.Date) as Date, d1.SSN FROM (
+                    SELECT Date, SSN, COUNT(SSN) as ssn_count FROM inoculation group by SSN, DATE HAVING ssn_count > 1
+                ) as d1 
+                GROUP BY d1.SSN 
+            ) as t1
+        """
+        query.execute(sql)
+
+        data.append(query.fetchall())
+        
+        return jsonify(data)
+
 # Setup the company endpoint
 
 company = api.namespace('company')
@@ -202,6 +248,7 @@ class Doctor(Resource):
 patient = api.namespace('patient')
 
 create_patient = api.model( 'create_patient', {
+    'SSN': fields.String(description='SSN'),
     'FirstName': fields.String(description='First Name of the patient'),
     'LastName': fields.String(description='Last Name of the patient'),
     'BirthDate': fields.Date(description='Birth date of the patient'),
@@ -240,9 +287,8 @@ class Patient(Resource):
         """
 
         new_patient = api.payload
-        print( new_patient );
-        inputs = (new_patient["FirstName"], new_patient["LastName"], new_patient["BirthDate"], new_patient["SS_Status"], new_patient["Address"], new_patient["PhoneNumber"])
-        sql = "INSERT INTO Patient(Firstname, LastName, BirthDate, SS_Status, Address, PhoneNumber) VALUES (%s, %s, %s, %s, %s, %s)"
+        inputs = (new_patient["SSN"], new_patient["FirstName"], new_patient["LastName"], new_patient["BirthDate"], new_patient["SS_Status"], new_patient["Address"], new_patient["PhoneNumber"])
+        sql = "INSERT INTO Patient(SSN, Firstname, LastName, BirthDate, SS_Status, Address, PhoneNumber) VALUES (%s, %s, %s, %s, %s, %s, %s)"
 
         query.execute(sql, inputs)
 
@@ -638,6 +684,312 @@ class BoxFridge(Resource):
         print(data)
 
         return jsonify(data)
+
+
+# Setup the Orders endpoint
+
+vaccineitem = api.namespace('vaccineitem')
+
+@vaccineitem.route('')
+class Storage(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT t1.B_Barcode, t1.V_Barcode, t3.Name as VaccineName, t1.Status FROM vaccine_item as t1 INNER JOIN box as t2 on t1.B_Barcode = t2.B_Barcode INNER JOIN vaccine as t3 on t2.V_Registration = t3.V_Registration
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+# Setup the Orders endpoint
+
+inoculation = api.namespace('inoculation')
+
+inoculation_data = api.model( 'inoculation_data', {
+    'Patient': fields.Integer(),
+    'Doctor': fields.Integer(),
+    'Vaccine': fields.Integer(),
+    'Date': fields.Date()
+})
+
+@inoculation.route('')
+class Inoculation(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT Date, SSN, PatientName, V_Barcode VaccineBarcode, VaccineName, B_Barcode as BoxBarcode, DoctorName, D_Registration as DoctorRegistration FROM inoculation_v
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(inoculation_data)
+    def post( self ):
+
+        inoculation = api.payload
+
+        inputs = (inoculation["Patient"], inoculation["Doctor"], inoculation["Vaccine"], inoculation["Date"])
+        sql = "INSERT INTO inoculation(SSN, D_Registration, V_Barcode, Date) VALUES (%s, %s, %s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        sql = "Update vaccine_item SET Status = 'Used' WHERE V_Barcode = {}".format(inoculation["Vaccine"])
+        query.execute(sql)
+        db.commit()
+
+        return "", 204
+
+get_list_of_inoculation = api.model( 'get_list_of_inoculation', {
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@inoculation.route('/patient')
+class InoculationPatient(Resource):
+
+    @api.expect(get_list_of_inoculation)
+    def post(self):
+        """ Get the barcodes of the patient
+        """
+
+        patient = api.payload
+
+        print(patient)
+
+        sql = "SELECT SSN FROM Patient WHERE SSN LIKE '{}%' LIMIT 4 OFFSET 0".format(patient["text"])
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
+@inoculation.route('/doctor')
+class InoculationDoctor(Resource):
+
+    @api.expect(get_list_of_inoculation)
+    def post(self):
+        """ Get the barcodes of the patient
+        """
+
+        doctor = api.payload
+
+        print(doctor)
+
+        sql = "SELECT D_Registration FROM Doctor WHERE D_Registration LIKE '{}%' LIMIT 4 OFFSET 0".format(doctor["text"])
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
+@inoculation.route('/vaccineitem')
+class InoculationDoctor(Resource):
+
+    @api.expect(get_list_of_inoculation)
+    def post(self):
+        """ Get the barcodes of the patient
+        """
+
+        vaccineitem = api.payload
+
+        print(vaccineitem)
+
+        sql = "SELECT V_Barcode FROM vaccine_item WHERE V_Barcode LIKE '{}%' AND Status = 'Available' LIMIT 4 OFFSET 0".format(vaccineitem["text"])
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
+
+get_list_of_side = api.model( 'get_list_of_side', {
+    'B_Barcode': fields.Integer,
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@inoculation.route('/sideeffect')
+class InoculationDoctor(Resource):
+
+    @api.expect(get_list_of_side)
+    def post(self):
+        """ Get the barcodes of the patient
+        """
+
+        effect = api.payload
+
+        print(effect)
+
+        text = effect["text"]
+        box = effect["B_Barcode"]
+
+        sql = """
+            SELECT t1.Side_Effect_ID, t1.Name FROM side_effect as t1 
+                INNER JOIN Vaccine as t2 on t1.V_Registration = t2.V_Registration
+                INNER JOIN box as t3 on t2.V_Registration = t3.V_Registration 
+                WHERE t3.B_Barcode = {} AND t1.Name LIKE '{}%'
+                LIMIT 4 OFFSET 0
+        """.format(box, text)
+
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
+
+
+# Setup the Orders endpoint
+
+sideeffectfelt = api.namespace('sideeffectfelt')
+
+sideeffectfelt_data = api.model( 'sideeffectfelt_data', {
+    'Patient': fields.Integer(),
+    'Doctor': fields.Integer(),
+    'Vaccine': fields.Integer(),
+    'Date': fields.Date(),
+    'Side_Effect_ID': fields.Integer()
+})
+
+@sideeffectfelt.route('')
+class SideEffectFelt(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT Date, PatientName, V_Barcode as VaccineBarcode, VaccineName, t3.Name as SideEffect FROM Side_Effect_Felt as t1 NATURAL JOIN inoculation_v as t2 NATURAL JOIN Side_Effect as t3
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(sideeffectfelt_data)
+    def post( self ):
+
+        effect = api.payload
+
+        inputs = (effect["Patient"], effect["Doctor"], effect["Vaccine"], effect["Date"], effect["Side_Effect_ID"])
+        sql = "INSERT INTO Side_Effect_Felt(SSN, D_Registration, V_Barcode, Date, Side_Effect_ID) VALUES (%s, %s, %s, %s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        return "", 204
+
+
+
+
+# Setup the Orders endpoint
+
+sideeffect = api.namespace('sideeffect')
+
+sideeffect_data = api.model( 'sideeffect_data', {
+    'Name': fields.String(),
+    'V_Registration': fields.Integer(),
+})
+
+@sideeffect.route('')
+class SideEffect(Resource):
+
+    @api.expect(pagination)
+    def get( self ):
+       
+        args = pagination.parse_args( request )
+
+        page = args.get('page', 1)
+        per_page = args.get('per_page', 10)
+
+        inputs = (per_page, page*per_page)
+        sql = """
+        SELECT t1.Side_Effect_ID, t1.Name as SideEffectName, t2.Name as VaccineName FROM side_effect as t1 INNER JOIN vaccine as t2 on t1.V_Registration = t2.V_Registration
+            LIMIT %s OFFSET %s
+        """
+
+        query.execute(sql, inputs)
+
+        data = query.fetchall()
+
+        print(data)
+
+        return jsonify(data)
+
+    @api.expect(sideeffect_data)
+    def post( self ):
+
+        effect = api.payload
+
+        inputs = (effect["Name"], effect["V_Registration"])
+        sql = "INSERT INTO Side_Effect(Name, V_Registration) VALUES (%s, %s)"
+        query.execute(sql, inputs)
+        db.commit()
+
+        return "", 204
+
+get_list_of_side = api.model( 'get_list_of_side', {
+    'B_Barcode': fields.Integer,
+    'text': fields.String(description='beginning of text to search for fridges')
+})
+
+@sideeffect.route('/vaccine')
+class SideEffectVac(Resource):
+
+    @api.expect(get_list_of_side)
+    def post(self):
+        """ Get the barcodes of the patient
+        """
+
+        effect = api.payload
+
+        print(effect)
+
+        text = effect["text"]
+
+        sql = "SELECT V_Registration, Name FROM vaccine WHERE Name LIKE '{}%' LIMIT 4 OFFSET 0".format(text)
+
+        query.execute(sql)
+        data = query.fetchall()
+        print(data)
+
+        return jsonify(data)
+
 
 if  __name__ == "__main__":
 
