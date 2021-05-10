@@ -465,7 +465,7 @@ CREATE VIEW Orders_V AS
 --
 
 CREATE VIEW Inoculation_V AS
-  SELECT t1.Date, t2.SSN, t2.FirstName + ' ' + t2.LastName as PatientName, t1.V_Barcode, t6.Name as VaccineName, t5.B_Barcode, t5.OrderID, t3.D_Registration, t3.FirstName + ' ' + t3.LastName as DoctorName  FROM Inoculation as t1 
+  SELECT t1.Date, t2.SSN, CONCAT(t2.FirstName, ' ', t2.LastName) as PatientName, t1.V_Barcode, t6.Name as VaccineName, t5.B_Barcode, t5.OrderID, t3.D_Registration, CONCAT(t3.FirstName, ' ', t3.LastName) as DoctorName  FROM Inoculation as t1 
     INNER JOIN Patient as t2 on t1.SSN = t2.SSN
     INNER JOIN Doctor as t3 on t1.D_Registration = t3.D_Registration
     INNER JOIN vaccine_item as t4 on t1.V_Barcode = t4.V_Barcode
