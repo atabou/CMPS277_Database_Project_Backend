@@ -470,7 +470,7 @@ CREATE VIEW Inoculation_V AS
     INNER JOIN Doctor as t3 on t1.D_Registration = t3.D_Registration
     INNER JOIN vaccine_item as t4 on t1.V_Barcode = t4.V_Barcode
     INNER JOIN Box as t5 on t4.B_Barcode = t5.B_Barcode
-    INNER JOIN Vaccine as t6 on t5.V_Registration = t6.V_Registration
+    INNER JOIN Vaccine as t6 on t5.V_Registration = t6.V_Registration;
 
 
 -- --------------------------------------------------------
