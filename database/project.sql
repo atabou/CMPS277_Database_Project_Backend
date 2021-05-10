@@ -499,3 +499,12 @@ BEGIN
 
 END $$
 DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Indices
+--
+
+CREATE INDEX Date_Index
+	ON inoculation (Date);
